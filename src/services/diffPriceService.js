@@ -2,16 +2,16 @@
 const { Op } = require('sequelize');
 const priceCache = require('../utils/priceCache');
 const DiffPrice = require('../models/DiffPrice');
-const { crawlPrice } = require('../utils/priceCrawl');
+const { crawlPrice, checkCrawlPrice } = require('../utils/priceCrawl');
 
-module.exports = {
-  create: async (data) => {
+class DiffPriceService {
+  async create(data) {
     try {
       data.createdAt = new Date();
       priceCache.setLatestDiffPrice(data);
 
       const newPrice = await DiffPrice.create(data, { logging: false });
-      
+
       setImmediate(() => {
         crawlPrice();
       });
@@ -20,16 +20,17 @@ module.exports = {
     } catch (error) {
       return { status: 'error', message: error.message };
     }
-  },
-  get: async () => {
-    try {
-      const price = await DiffPrice.findOne(); // Ví dụ: lấy giá đầu tiên
-      return { status: 'success', data: price };
-    } catch (error) {
-      return { status: 'error', message: error.message };
-    }
-  },
-  cleanupRecords: async () => {
+  }
+
+  async checkCrawl() {
+    const latestDiffPrice = priceCache.getLatestDiffPrice();
+    const previousDiffPriceTime = priceCache.getPreviousDiffPriceTime();
+    if(!latestDiffPrice || !previousDiffPriceTime
+      || latestDiffPrice.createdAt.getTime() - previousDiffPriceTime < process.env.TIME_STABLE) return false;
+    return true;
+  }
+
+  async cleanupRecords() {
     try {
       const thresholdMinutes = parseInt(process.env.CLEANUP_THRESHOLD) || 3; // Lấy từ .env, mặc định 3 phút
       const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000); // Chuyển thành thời gian
@@ -46,5 +47,8 @@ module.exports = {
       console.error('Lỗi khi cleanup DiffPrice:', error);
       throw error;
     }
-  },
-};
+  }
+}
+
+// Export instance của class
+module.exports = new DiffPriceService();

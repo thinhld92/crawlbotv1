@@ -72,8 +72,8 @@ const crawlPrice = async () => {
     // if (orderRecommend === Action.NONE && closeRecommend === Action.NONE) {
     //   return
     // }
-    const timeDiff = latestStandard.createdAt - latestDiff.createdAt;
-    if (Math.abs(timeDiff) < process.env.TIME_STABLE) {
+    const timeDiff = priceCache.getLastestDiffTime();
+    if (!timeDiff || timeDiff < process.env.TIME_STABLE) {
       return;
     }
     const data = {};
@@ -92,7 +92,36 @@ const crawlPrice = async () => {
     data.brokerTime = latestStandard.brokerTime;
     await recommendService.create(data);
   } catch (error) {
+    console.log(error);
+    
     logger.error('Lỗi khi so sánh giá:', error);
+  }
+};
+
+const checkCrawlPrice = async () => {
+  try {
+    // Lấy StandardPrice từ cache
+    let latestStandard = priceCache.getLatestStandardPrice();
+    if (!latestStandard) {
+      return false;
+    }
+    
+    // Lấy DiffPrice từ cache
+    let latestDiff = priceCache.getLatestDiffPrice();
+    if (!latestDiff) {
+      return false;
+    }
+    const currentTime = Date.now()
+    if (currentTime - latestStandard.createdAt.getTime() < process.env.TIME_STABLE
+      || currentTime - latestDiff.createdAt.getTime() < process.env.TIME_STABLE
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    logger.error('Lỗi khi so sánh giá:', error);
+    return false;
   }
 };
 
@@ -101,5 +130,6 @@ const debouncedComparePrices = _.debounce(crawlPrice, parseInt(process.env.TIME_
 
 module.exports = {
   crawlPrice,         // Xuất hàm gốc nếu cần dùng trực tiếp
+  checkCrawlPrice,
   debouncedComparePrices // Xuất hàm đã debounce để dùng trong services
 };
