@@ -3,30 +3,32 @@ class PriceCache {
   constructor() {
     // Khởi tạo các thuộc tính
     this.latestStandardPrice = null;       // Lưu giá trị mới nhất của StandardPrice
-    this.previousStandardPriceTime = null; // Lưu thời gian createdAt cũ của StandardPrice
+    this.previousStandardPrice = null; // Lưu thời gian createdAt cũ của StandardPrice
     this.latestDiffPrice = null;           // Lưu giá trị mới nhất của DiffPrice
-    this.previousDiffPriceTime = null;     // Lưu thời gian createdAt cũ của DiffPrice
+    this.previousDiffPrice = null;     // Lưu thời gian createdAt cũ của DiffPrice
     this.latestRecommend = null;           // Lưu giá trị mới nhất của Recommend
     this.lastestDiffTime = null;
+    this.lastTickTime = null;
   }
 
   // Phương thức lưu StandardPrice vào cache
   setLatestStandardPrice(price) {
     // Lưu lại thời gian của latestStandardPrice cũ (nếu có) trước khi cập nhật
-    if (this.latestStandardPrice && this.latestStandardPrice.createdAt) {
-      this.previousStandardPriceTime = this.latestStandardPrice.createdAt;
+    if (this.latestStandardPrice) {
+      this.previousStandardPrice = this.latestStandardPrice;
     }
     this.latestStandardPrice = price;
+    this.lastTickTime = price.createdAt.getTime();
     const currentTime = price.createdAt.getTime();
   
     // Tính khoảng cách đến previousStandardPriceTime và latestDiffPrice.createdAt
     let diffToPreviousStandard = null;
     let diffToLatestDiff = null;
-  
-    if (this.previousStandardPriceTime) {
-      diffToPreviousStandard = currentTime - this.previousStandardPriceTime.getTime();
+
+    if (this.previousStandardPrice) {
+      diffToPreviousStandard = currentTime - this.previousStandardPrice.createdAt.getTime();
     }
-    if (this.latestDiffPrice && this.latestDiffPrice.createdAt) {
+    if (this.latestDiffPrice) {
       diffToLatestDiff = currentTime - this.latestDiffPrice.createdAt.getTime();
     }
   
@@ -48,27 +50,28 @@ class PriceCache {
   }
 
   // Phương thức lấy thời gian createdAt cũ của StandardPrice
-  getPreviousStandardPriceTime() {
-    return this.previousStandardPriceTime;
+  getPreviousStandardPrice() {
+    return this.previousStandardPrice;
   }
 
   // Phương thức lưu DiffPrice vào cache
   setLatestDiffPrice(price) {
     // Lưu lại thời gian của latestDiffPrice cũ (nếu có) trước khi cập nhật
-    if (this.latestDiffPrice && this.latestDiffPrice.createdAt) {
-      this.previousDiffPriceTime = this.latestDiffPrice.createdAt;
+    if (this.latestDiffPrice) {
+      this.previousDiffPrice = this.latestDiffPrice;
     }
     this.latestDiffPrice = price;
+    this.lastTickTime = price.createdAt.getTime();
     const currentTime = price.createdAt.getTime();
   
     // Tính khoảng cách đến previousDiffPriceTime và latestStandardPrice.createdAt
     let diffToPreviousDiff = null;
     let diffToLatestStandard = null;
   
-    if (this.previousDiffPriceTime) {
-      diffToPreviousDiff = currentTime - this.previousDiffPriceTime.getTime();
+    if (this.previousDiffPrice) {
+      diffToPreviousDiff = currentTime - this.previousDiffPrice.createdAt.getTime();
     }
-    if (this.latestStandardPrice && this.latestStandardPrice.createdAt) {
+    if (this.latestStandardPrice) {
       diffToLatestStandard = currentTime - this.latestStandardPrice.createdAt.getTime();
     }
   
@@ -90,8 +93,8 @@ class PriceCache {
   }
 
   // Phương thức lấy thời gian createdAt cũ của DiffPrice
-  getPreviousDiffPriceTime() {
-    return this.previousDiffPriceTime;
+  getPreviousDiffPrice() {
+    return this.previousDiffPrice;
   }
 
   // Phương thức lưu Recommend vào cache
@@ -111,6 +114,15 @@ class PriceCache {
   // Phương thức lấy Recommend từ cache
   getLastestDiffTime() {
     return this.lastestDiffTime;
+  }
+
+  setLastTickTime(lastTime) {
+    this.lastTickTime = lastTime;
+  }
+
+  // Phương thức lấy Recommend từ cache
+  getLastTickTime() {
+    return this.lastTickTime;
   }
 }
 

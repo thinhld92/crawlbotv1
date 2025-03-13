@@ -2,7 +2,7 @@
 const { Op } = require('sequelize');
 const priceCache = require('../utils/priceCache');
 const StandardPrice = require('../models/StandardPrice');
-const { crawlPrice, checkCrawlPrice } = require('../utils/priceCrawl');
+const { crawlPrice } = require('../utils/priceCrawl');
 
 class StandardPriceService {
   async create(data) {
@@ -18,14 +18,6 @@ class StandardPriceService {
       return { status: 'error', message: error.message };
     }
   }
-
-  async checkCrawl() {
-      const latestStandardPrice = priceCache.getLatestStandardPrice();
-      const previousStandardPriceTime = priceCache.getPreviousStandardPriceTime();
-      if(!latestStandardPrice || !previousStandardPriceTime 
-        || latestStandardPrice.createdAt.getTime() - previousStandardPriceTime < process.env.TIME_STABLE) return false;
-      return true;
-    }
 
   async cleanupRecords() {
     try {

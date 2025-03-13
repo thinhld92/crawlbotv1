@@ -11,33 +11,26 @@ const logger = require('../config/logger');
 const crawlPrice = async () => {
   try {
     // Lấy StandardPrice từ cache
-    let latestStandard = priceCache.getLatestStandardPrice();
-    if (!latestStandard) {
-      // Nếu không có trong cache, lấy từ database
-      latestStandard = await StandardPrice.findOne({
-        order: [['id', 'DESC']],
-      });
-      if (latestStandard) {
-        priceCache.setLatestStandardPrice(latestStandard); // Cập nhật cache
-      }
+    if (!priceCache.getPreviousStandardPrice() || !priceCache.getPreviousDiffPrice()) {
+      logger.info('Không đủ dữ liệu để so sánh giá');
+      return;
+    }
+
+    let priceStandard = priceCache.getLatestStandardPrice();
+    if (priceCache.getLastTickTime() == priceCache.getLatestStandardPrice().createdAt.getTime()) {
+      priceStandard = priceCache.getPreviousStandardPrice()
     }
 
     // Lấy DiffPrice từ cache
-    let latestDiff = priceCache.getLatestDiffPrice();
-    if (!latestDiff) {
-      // Nếu không có trong cache, lấy từ database
-      latestDiff = await DiffPrice.findOne({
-        order: [['id', 'DESC']],
-      });
-      if (latestDiff) {
-        priceCache.setLatestDiffPrice(latestDiff); // Cập nhật cache
-      }
+    let priceDiff = priceCache.getLatestDiffPrice();
+    if (priceCache.getLastTickTime() == priceCache.getLatestDiffPrice().createdAt.getTime()) {
+      priceDiff = priceCache.getPreviousDiffPrice()
     }
 
     const currentTime = Date.now()
-    if (!latestStandard || !latestDiff 
-      || currentTime - latestStandard.createdAt.getTime() > process.env.MAX_LAST_TIME 
-      || currentTime - latestDiff.createdAt.getTime() > process.env.MAX_LAST_TIME) {
+    if (!priceStandard || !priceDiff 
+      || currentTime - priceStandard.createdAt.getTime() > process.env.MAX_LAST_TIME 
+      || currentTime - priceDiff.createdAt.getTime() > process.env.MAX_LAST_TIME) {
         logger.info('Không đủ dữ liệu để so sánh giá');
         return;
     }
@@ -45,28 +38,28 @@ const crawlPrice = async () => {
     let diff = -1;
     let closeRecommend = Action.NONE;
     // cắt lệnh sell
-    if ((latestStandard.bidPrice - latestDiff.askPrice) >= process.env.CLOSE_POINT) {
+    if ((priceStandard.bidPrice - priceDiff.askPrice) >= process.env.CLOSE_POINT) {
         closeRecommend = Action.CLOSE_SELL;
-        diff = latestStandard.bidPrice - latestDiff.askPrice;
+        diff = priceStandard.bidPrice - priceDiff.askPrice;
     }
 
     // cắt lệnh buy
-    if ((latestDiff.bidPrice - latestStandard.askPrice) >= process.env.CLOSE_POINT) {
+    if ((priceDiff.bidPrice - priceStandard.askPrice) >= process.env.CLOSE_POINT) {
         closeRecommend = Action.CLOSE_BUY;
-        diff = latestDiff.bidPrice - latestStandard.askPrice;
+        diff = priceDiff.bidPrice - priceStandard.askPrice;
     }
 
     // sell
     let orderRecommend = Action.NONE
     
-    if ((latestDiff.bidPrice - latestStandard.askPrice) >= process.env.ENTRY_POINT) {
+    if ((priceDiff.bidPrice - priceStandard.askPrice) >= process.env.ENTRY_POINT) {
         orderRecommend = Action.SELL;
-        diff = latestDiff.bidPrice - latestStandard.askPrice;
+        diff = priceDiff.bidPrice - priceStandard.askPrice;
     }
     // buy
-    if ((latestStandard.bidPrice - latestDiff.askPrice) >= process.env.ENTRY_POINT) {
+    if ((priceStandard.bidPrice - priceDiff.askPrice) >= process.env.ENTRY_POINT) {
         orderRecommend = Action.BUY;
-        diff = latestStandard.bidPrice - latestDiff.askPrice;
+        diff = priceStandard.bidPrice - priceDiff.askPrice;
     }
     
     // if (orderRecommend === Action.NONE && closeRecommend === Action.NONE) {
@@ -78,18 +71,18 @@ const crawlPrice = async () => {
     }
     const data = {};
     data.createdAt = new Date();
-    data.symbol = latestStandard.symbol;
-    data.standardServer = latestStandard.server;
-    data.diffServer = latestDiff.server;
-    data.askStandardPrice = latestStandard.askPrice;
-    data.bidStandardPrice = latestStandard.bidPrice;
-    data.askDiffPrice = latestDiff.askPrice;
-    data.bidDiffPrice = latestDiff.bidPrice;
+    data.symbol = priceStandard.symbol;
+    data.standardServer = priceStandard.server;
+    data.diffServer = priceDiff.server;
+    data.askStandardPrice = priceStandard.askPrice;
+    data.bidStandardPrice = priceStandard.bidPrice;
+    data.askDiffPrice = priceDiff.askPrice;
+    data.bidDiffPrice = priceDiff.bidPrice;
     data.diff = diff;
     data.diffTime = Math.abs(timeDiff);
     data.orderRecommend = orderRecommend;
     data.closeRecommend = closeRecommend;
-    data.brokerTime = latestStandard.brokerTime;
+    data.brokerTime = priceStandard.brokerTime;
     await recommendService.create(data);
   } catch (error) {
     console.log(error);
